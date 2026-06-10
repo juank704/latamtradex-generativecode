@@ -1,0 +1,233 @@
+// ============================================================
+// Latamtradex - Esquema de base de datos (SQLite + Prisma ORM)
+// ============================================================
+// SQLite no soporta enums nativos, por lo que los roles y estados
+// se manejan como strings con validacion a nivel de aplicacion.
+//
+// v2 (modelo de negocio escalado):
+//   - Flujo de aprobacion en Product y Document (PENDING/APPROVED/REJECTED)
+//   - Trazabilidad de quien revisa (reviewer/reviewedAt)
+//   - Nuevo modelo PurchaseOrder (Orden de Compra) generado al aceptar una
+//     cotizacion, vinculado al proveedor, con fecha limite de preparacion.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// Usuarios y roles
+// Roles permitidos: "ADMIN" | "PROVIDER" | "BUYER"
+// ------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("BUYER") // "ADMIN" | "PROVIDER" | "BUYER"
+  companyName  String?
+  country      String?
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Contenido publicado por el usuario (como proveedor)
+  products  Product[]  @relation("ProviderProducts")
+  documents Document[] @relation("ProviderDocuments")
+
+  // Cotizaciones solicitadas (como comprador)
+  quotesRequested Quote[]         @relation("BuyerQuotes")
+  advisoryOrders  AdvisoryOrder[]
+
+  // Trazabilidad de revisiones (como administrador)
+  reviewedProducts  Product[]  @relation("ProductReviewer")
+  reviewedDocuments Document[] @relation("DocumentReviewer")
+
+  // Ordenes de compra
+  purchaseOrdersAsProvider PurchaseOrder[] @relation("ProviderPurchaseOrders")
+  purchaseOrdersAsBuyer    PurchaseOrder[] @relation("BuyerPurchaseOrders")
+}
+
+// ------------------------------------------------------------
+// Catalogo de productos
+// Visibilidad publica solo cuando approvalStatus = "APPROVED".
+// approvalStatus: "PENDING" | "APPROVED" | "REJECTED"
+// ------------------------------------------------------------
+model Product {
+  id            String   @id @default(cuid())
+  name          String
+  description   String
+  category      String
+  unit          String // ej: "kg", "caja", "tonelada"
+  pricePerUnit  Float
+  minOrderQty   Int      @default(1)
+  originCity    String
+  originCountry String   @default("Colombia")
+  imageUrl      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Flujo de aprobacion (moderacion del administrador)
+  approvalStatus  String    @default("PENDING")
+  rejectionReason String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewer        User?     @relation("ProductReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  providerId String
+  provider   User   @relation("ProviderProducts", fields: [providerId], references: [id], onDelete: Cascade)
+
+  quotes         Quote[]
+  documents      Document[]
+  purchaseOrders PurchaseOrder[]
+}
+
+// ------------------------------------------------------------
+// Documentacion tecnica de los proveedores
+// Tipo: "CERTIFICATE" | "PHYTOSANITARY" | "QUALITY" | "OTHER"
+// approvalStatus: "PENDING" | "APPROVED" | "REJECTED"
+// ------------------------------------------------------------
+model Document {
+  id         String   @id @default(cuid())
+  title      String
+  type       String   @default("OTHER")
+  fileUrl    String
+  fileSize   Int // bytes
+  mimeType   String
+  uploadedAt DateTime @default(now())
+
+  // Flujo de aprobacion (moderacion del administrador)
+  approvalStatus  String    @default("PENDING")
+  rejectionReason String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewer        User?     @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  providerId String
+  provider   User   @relation("ProviderDocuments", fields: [providerId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+}
+
+// ------------------------------------------------------------
+// Solicitudes de cotizacion logistica
+// Estado: "PENDING" | "QUOTED" | "ACCEPTED" | "REJECTED"
+// Al pasar a "ACCEPTED" el sistema genera una PurchaseOrder.
+// ------------------------------------------------------------
+model Quote {
+  id                 String   @id @default(cuid())
+  quantity           Int
+  destinationCity    String
+  destinationCountry String
+  incoterm           String   @default("FOB") // FOB, CIF, EXW, etc.
+  notes              String?
+  status             String   @default("PENDING")
+
+  // Condiciones de pago definidas por el comprador al solicitar la cotizacion
+  paymentMethod    String @default("TRANSFER") // "TRANSFER" | "CARD" | "CASH"
+  paymentCondition String @default("ON_DELIVERY") // "UPFRONT" | "ON_DELIVERY" | "CREDIT_30"
+  logisticsCost      Float?
+  customsCost        Float?
+  totalEstimated     Float?
+  adminNotes         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  buyerId String
+  buyer   User   @relation("BuyerQuotes", fields: [buyerId], references: [id], onDelete: Cascade)
+
+  // Orden de compra generada al aceptar la cotizacion (1 a 1)
+  purchaseOrder PurchaseOrder?
+}
+
+// ------------------------------------------------------------
+// Orden de Compra
+// Se genera automaticamente cuando el admin acepta una cotizacion.
+// El proveedor debe fijar preparationDeadline (regla de negocio).
+//
+// Estado:
+//   "GENERATED"  -> recien creada, el proveedor aun no fija fecha limite
+//   "SCHEDULED"  -> el proveedor fijo la fecha limite de preparacion
+//   "PREPARING"  -> el proveedor esta preparando el pedido
+//   "READY"      -> pedido listo para despacho
+//   "SHIPPED"    -> en transito
+//   "DELIVERED"  -> entregado
+//   "CANCELED"   -> cancelada
+// ------------------------------------------------------------
+model PurchaseOrder {
+  id          String  @id @default(cuid())
+  orderNumber String? @unique // codigo legible generado por la app (ej: OC-2026-0001)
+
+  quantity           Int
+  unitPrice          Float
+  totalAmount        Float
+  incoterm           String
+  destinationCity    String
+  destinationCountry String
+
+  status String @default("GENERATED")
+
+  // Regla de negocio: tras generarse la OC el proveedor fija la fecha limite.
+  preparationDeadline DateTime?
+  deadlineSetAt       DateTime?
+  providerNotes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacion 1 a 1 con la cotizacion de origen
+  quoteId String @unique
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  providerId String
+  provider   User   @relation("ProviderPurchaseOrders", fields: [providerId], references: [id], onDelete: Cascade)
+
+  buyerId String
+  buyer   User   @relation("BuyerPurchaseOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------
+// Servicios de asesoria y orden de compra (Stripe)
+// ------------------------------------------------------------
+model AdvisoryService {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  title       String
+  description String
+  priceUsd    Float
+  durationHrs Int
+  category    String // "CERTIFICATION" | "NEW_MARKETS"
+  isActive    Boolean @default(true)
+
+  orders AdvisoryOrder[]
+}
+
+// Estado: "PENDING" | "PAID" | "FAILED" | "CANCELED"
+model AdvisoryOrder {
+  id                    String   @id @default(cuid())
+  amountUsd             Float
+  status                String   @default("PENDING")
+  stripeSessionId       String?  @unique
+  stripePaymentIntentId String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  serviceId String
+  service   AdvisoryService @relation(fields: [serviceId], references: [id])
+
+  buyerId String
+  buyer   User   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+}

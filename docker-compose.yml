@@ -1,0 +1,42 @@
+# ============================================================
+# Latamtradex - Orquestacion local con Docker Compose
+# ============================================================
+# Uso:
+#   docker compose up --build
+# Acceso:
+#   http://localhost:3000
+# ============================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: latamtradex:latest
+    container_name: latamtradex-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "file:/app/data/prod.db"
+      AUTH_SECRET: ${AUTH_SECRET:-cambia-este-secreto-en-produccion-32b-min}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_replace_me}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_test_replace_me}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    volumes:
+      - latamtradex-db:/app/data
+      - latamtradex-uploads:/app/public/uploads
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  latamtradex-db:
+    driver: local
+  latamtradex-uploads:
+    driver: local
