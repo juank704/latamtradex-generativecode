@@ -2,6 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  getNextStates,
+  PURCHASE_ORDER_STATUS_LABELS,
+  type PurchaseOrderStatus
+} from '@/lib/purchaseOrder';
 
 type Order = {
   id: string;
@@ -32,23 +37,8 @@ const statusStyles: Record<string, string> = {
   CANCELED: 'bg-slate-200 text-slate-600'
 };
 
-const statusLabels: Record<string, string> = {
-  GENERATED: 'Generada',
-  SCHEDULED: 'Programada',
-  PREPARING: 'Preparando',
-  READY: 'Lista',
-  SHIPPED: 'Despachada',
-  DELIVERED: 'Entregada',
-  CANCELED: 'Cancelada'
-};
-
-// Estados a los que puede avanzar el proveedor desde el estado actual.
-const nextStates: Record<string, string[]> = {
-  SCHEDULED: ['PREPARING', 'CANCELED'],
-  PREPARING: ['READY', 'CANCELED'],
-  READY: ['SHIPPED'],
-  SHIPPED: ['DELIVERED']
-};
+// Etiquetas y transiciones provienen del modulo de maquina de estados compartido.
+const statusLabels = PURCHASE_ORDER_STATUS_LABELS;
 
 export default function PurchaseOrderManager({ orders }: { orders: Order[] }) {
   if (orders.length === 0) {
@@ -110,7 +100,7 @@ function OrderRow({ order }: { order: Order }) {
     router.refresh();
   }
 
-  const allowed = nextStates[order.status] ?? [];
+  const allowed = getNextStates(order.status as PurchaseOrderStatus);
 
   return (
     <div className="card p-4">
@@ -128,7 +118,7 @@ function OrderRow({ order }: { order: Order }) {
           </p>
         </div>
         <span className={`badge ${statusStyles[order.status]}`}>
-          {statusLabels[order.status] ?? order.status}
+          {statusLabels[order.status as PurchaseOrderStatus] ?? order.status}
         </span>
       </div>
 

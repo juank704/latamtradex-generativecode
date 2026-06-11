@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { PurchaseOrderDeadlineSchema, PurchaseOrderStatusSchema } from '@/lib/validation';
+import {
+  canTransition,
+  requiresDeadlineBeforeAdvancing,
+  statusAfterDeadlineSet,
+  type PurchaseOrderStatus
+} from '@/lib/purchaseOrder';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   let session;
@@ -44,7 +50,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         deadlineSetAt: new Date(),
         providerNotes: parsed.data.providerNotes ?? po.providerNotes,
         // Al fijar la fecha por primera vez, la orden pasa a SCHEDULED.
-        status: po.status === 'GENERATED' ? 'SCHEDULED' : po.status
+        status: statusAfterDeadlineSet(po.status as PurchaseOrderStatus)
       }
     });
     return NextResponse.json(updated);
@@ -59,17 +65,28 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     );
   }
 
+  const from = po.status as PurchaseOrderStatus;
+  const to = parsed.data.status as PurchaseOrderStatus;
+
   // No se puede avanzar mas alla de GENERATED sin haber fijado la fecha limite.
-  if (po.status === 'GENERATED' && parsed.data.status !== 'CANCELED') {
+  if (requiresDeadlineBeforeAdvancing(from) && to !== 'CANCELED') {
     return NextResponse.json(
       { error: 'Primero debes fijar la fecha limite de preparacion.' },
       { status: 400 }
     );
   }
 
+  // La transicion debe ser valida segun la maquina de estados.
+  if (!canTransition(from, to)) {
+    return NextResponse.json(
+      { error: `Transicion no permitida: ${from} -> ${to}` },
+      { status: 400 }
+    );
+  }
+
   const updated = await prisma.purchaseOrder.update({
     where: { id: params.id },
-    data: { status: parsed.data.status }
+    data: { status: to }
   });
   return NextResponse.json(updated);
 }
