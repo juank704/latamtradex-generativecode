@@ -1,181 +1,161 @@
 # Latamtradex
 
-> Plataforma web full-stack que funciona como **operador logístico** para conectar proveedores latinoamericanos con compradores en el exterior (Chile, Perú y otros mercados). Latamtradex elimina la fricción aduanera ofreciendo cotizaciones logísticas integrales, gestión documental certificada y asesorías especializadas.
+> Plataforma web full-stack que funciona como **operador logístico**: conecta proveedores latinoamericanos con compradores en el exterior (Chile, Perú y otros mercados), eliminando la fricción aduanera con cotizaciones logísticas integrales, moderación de productos/documentos, órdenes de compra con seguimiento y asesorías con pago en línea.
 
 ---
 
-## Stack tecnológico
+## 📑 Tabla de contenido
 
-| Capa | Tecnología |
-| --- | --- |
-| Framework | **Next.js 14** (App Router, React Server Components) |
-| Lenguaje | **TypeScript** |
-| Base de datos | **SQLite** (vía volumen persistente) |
-| ORM | **Prisma** |
-| Estilos | **Tailwind CSS** |
-| Autenticación | JWT firmado con `jose` + `bcryptjs` (cookies HTTP-only) |
-| Pagos | **Stripe Checkout** (modo prueba) |
-| Validación | **Zod** |
-| Contenedores | **Docker** + **Docker Compose** |
+1. [Requisitos previos](#-requisitos-previos)
+2. [Ejecutar con Docker](#-ejecutar-con-docker)
+3. [🔑 Credenciales de acceso (demo)](#-credenciales-de-acceso-demo)
+4. [🧭 Guía de uso paso a paso](#-guía-de-uso-paso-a-paso)
+5. [Solución de problemas](#-solución-de-problemas)
 
 ---
 
-## Funcionalidades (módulos)
+## ✅ Requisitos previos
 
-1. **Autenticación y usuarios** — registro, login, logout y control de acceso por rol (`ADMIN`, `PROVIDER`, `BUYER`).
-2. **Catálogo público** — listado y detalle de productos visible sin login, con filtros por categoría y búsqueda.
-3. **Documentación del proveedor** — área privada para subir certificados, fichas técnicas y documentos de exportación (PDF/DOC/imagen, máx 8 MB), asociables a un producto.
-4. **Cotizaciones logísticas** — los compradores solicitan una cotización integral desde el producto; el equipo Latamtradex (rol `ADMIN`) agrega costos logísticos y aduaneros, calcula total estimado y notifica al comprador.
-5. **Asesorías + Stripe** — catálogo de servicios (certificación, apertura de mercados, optimización logística) con pasarela Stripe Checkout (modo prueba). Si Stripe no está configurado, se activa un **modo demo** que simula el pago.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y en ejecución (incluye Docker Compose v2). Es lo único que se necesita.
+
+> No se necesitan claves de Stripe para evaluar el sistema: el módulo de pagos detecta que no están configuradas y entra en **modo demo** (simula el pago correctamente).
 
 ---
 
-## Arquitectura
+## 🐳 Ejecutar con Docker
 
-```
-src/
-├── app/                       # App Router (Next.js)
-│   ├── api/                   # Endpoints REST
-│   │   ├── auth/{login,register,logout}
-│   │   ├── products/          # CRUD productos
-│   │   ├── documents/         # Carga de documentos (multipart)
-│   │   ├── quotes/            # Crear y actualizar cotizaciones
-│   │   └── checkout/          # Crea sesión Stripe
-│   ├── catalogo/              # Catálogo público
-│   ├── productos/[id]/        # Detalle + formulario de cotización
-│   ├── asesorias/             # Servicios de asesoría
-│   ├── checkout/success/      # Confirmación de pago
-│   ├── login/, registro/
-│   └── dashboard/
-│       ├── admin/             # Resumen, cotizaciones, usuarios
-│       ├── proveedor/         # Productos y documentos
-│       └── comprador/         # Cotizaciones y asesorías
-├── components/                # UI compartida
-└── lib/                       # prisma, auth, stripe, validation
-prisma/
-├── schema.prisma              # Modelos (User, Product, Document, Quote, AdvisoryService, AdvisoryOrder)
-└── seed.ts                    # Datos iniciales
-```
-
-### Modelo de datos (Prisma)
-
-- **User** — `role: ADMIN | PROVIDER | BUYER`
-- **Product** — pertenece a un `PROVIDER`, visible públicamente.
-- **Document** — pertenece a un `PROVIDER`, opcionalmente vinculado a un producto.
-- **Quote** — solicitada por `BUYER`, gestionada por `ADMIN`; incluye costos logísticos/aduaneros.
-- **AdvisoryService** + **AdvisoryOrder** — servicios contratables con Stripe.
-
----
-
-## Puesta en marcha rápida
-
-### Opción A — Local con Node.js
+### 0. Descargar el proyecto
 
 ```bash
-# 1. Instalar dependencias
-npm install
-
-# 2. Copiar variables de entorno
-cp .env.example .env
-#   Edita AUTH_SECRET y, si vas a probar pagos reales, las claves de Stripe.
-
-# 3. Crear la base de datos y ejecutar migraciones
-npx prisma migrate dev --name init
-
-# 4. Cargar datos de prueba
-npm run prisma:seed
-
-# 5. Levantar el servidor de desarrollo
-npm run dev
+git clone https://github.com/juank704/latamtradex-generativecode.git
+cd latamtradex-generativecode
 ```
 
-Aplicación disponible en **http://localhost:3000**.
+Los siguientes comandos se ejecutan desde la carpeta raíz del proyecto (donde está el `docker-compose.yml`).
 
-### Opción B — Docker Compose (entorno reproducible)
+### 1. Construir y levantar la aplicación
 
 ```bash
-# (opcional) personaliza variables en un archivo .env de la raiz
-docker compose up --build
+docker compose up --build -d
 ```
 
-La imagen multi-stage:
-1. Instala dependencias (`deps`).
-2. Genera el cliente Prisma y compila Next.js (`builder`).
-3. Empaqueta el bundle `standalone` con un usuario no-root (`runner`).
+Esto construye la imagen, levanta el contenedor `latamtradex-app` y **aplica automáticamente el esquema de base de datos** (el script de arranque ejecuta `prisma db push`). La app queda disponible en:
 
-Al arrancar, el `docker-entrypoint.sh` sincroniza el esquema con `prisma db push` (apropiado para SQLite). Para poblar datos iniciales dentro del contenedor:
+👉 **http://localhost:3000**
+
+### 2. Cargar los datos de demostración (seed)
+
+La imagen de producción es liviana y no incluye el cargador de datos, así que el seed se ejecuta con un contenedor auxiliar que comparte el mismo volumen de base de datos:
 
 ```bash
-docker compose exec app npx prisma db seed
+# a) Construir una imagen auxiliar con las herramientas de desarrollo
+docker build --target builder -t latamtradex-builder .
+
+# b) Ejecutar el seed contra la base de datos del contenedor
+docker run --rm \
+  -v latamtradex-generativecode_latamtradex-db:/app/data \
+  -e DATABASE_URL="file:/app/data/prod.db" \
+  latamtradex-builder npx tsx prisma/seed.ts
 ```
 
-Los volúmenes `latamtradex-db` y `latamtradex-uploads` preservan la base SQLite y los archivos subidos entre reinicios.
+Al terminar verás impresas las credenciales demo. **Recarga http://localhost:3000** y ya tendrás el catálogo poblado.
+
+> ℹ️ El nombre del volumen (`latamtradex-generativecode_latamtradex-db`) es el del proyecto. Si tu carpeta tiene otro nombre, localízalo con `docker volume ls` y reemplázalo en el comando.
+
+### 3. Detener / reiniciar
+
+```bash
+docker compose stop      # detener (conserva datos)
+docker compose up -d     # volver a levantar
+docker compose down      # eliminar contenedor (conserva volúmenes/datos)
+docker compose down -v   # eliminar TODO, incluida la base de datos
+```
 
 ---
 
-## Cuentas de demostración (tras `npm run prisma:seed`)
+## 🔑 Credenciales de acceso (demo)
 
-| Rol | Email | Contraseña |
+Tras ejecutar el seed (paso 2), puedes entrar en **http://localhost:3000/login** con cualquiera de estos usuarios. **La contraseña es la misma para los tres:**
+
+| Rol | Correo | Contraseña |
 | --- | --- | --- |
-| Admin | `admin@latamtradex.com` | `Latamtradex2026!` |
-| Proveedor | `proveedor@latamtradex.com` | `Latamtradex2026!` |
-| Comprador | `comprador@latamtradex.com` | `Latamtradex2026!` |
+| 🛡️ **Administrador** (Latamtradex) | `admin@latamtradex.com` | `Latamtradex2026!` |
+| 📦 **Proveedor** | `proveedor@latamtradex.com` | `Latamtradex2026!` |
+| 🛒 **Comprador** | `comprador@latamtradex.com` | `Latamtradex2026!` |
 
-Cambia las contraseñas antes de exponer la aplicación.
+> Estas credenciales también se muestran en un recuadro dentro de la propia página de login para mayor comodidad.
 
 ---
 
-## Variables de entorno
+## 🧭 Guía de uso paso a paso
 
-| Variable | Descripción |
+A continuación, un recorrido completo que ejercita todas las funcionalidades. Se recomienda hacerlo en este orden para ver el flujo de negocio de principio a fin.
+
+### Parte 0 — Navegación pública (sin login)
+1. Abre **http://localhost:3000**.
+2. Entra a **Catálogo** (menú superior): verás los productos aprobados, con búsqueda y filtro por categoría.
+3. Haz clic en un producto para ver su ficha, precio, origen y documentación certificada.
+
+### Parte 1 — Proveedor: publicar producto y documentación
+1. Inicia sesión como **proveedor** (`proveedor@latamtradex.com`).
+2. En el panel lateral entra a **Mis productos → “+ Nuevo producto”**, complétalo y publícalo.
+   - El producto queda en estado **“En revisión”** y *aún no aparece* en el catálogo público.
+3. Entra a **Documentación** y sube un archivo (PDF/imagen) como certificado de calidad. También queda “En revisión”.
+
+### Parte 2 — Administrador: moderar (aprobar/rechazar)
+1. Cierra sesión e inicia como **administrador** (`admin@latamtradex.com`).
+2. En el panel verás tarjetas de “pendientes”. Entra a **Moderar productos**.
+3. Pulsa **Aprobar** en el producto del proveedor (o **Rechazar** indicando un motivo).
+   - Al aprobarlo, ya aparece en el **catálogo público**.
+4. Repite en **Moderar documentos** para validar el certificado subido.
+
+### Parte 3 — Comprador: cotizar con condiciones de pago
+1. Cierra sesión e inicia como **comprador** (`comprador@latamtradex.com`).
+2. Ve al **Catálogo**, abre un producto y completa el formulario **“Solicitar cotización”**:
+   - Cantidad, ciudad/país de destino, Incoterm.
+   - **Forma de pago** (Transferencia / Tarjeta / Efectivo) y **Condición de pago** (Al contado / A la entrega / Crédito 30 días).
+3. Envía la solicitud. Quedará como **“Pendiente”** en tu panel.
+
+### Parte 4 — Administrador: cotizar y aceptar (se genera la Orden de Compra)
+1. Vuelve a entrar como **administrador** → **Cotizaciones**.
+2. Abre la cotización del comprador: verás la forma y condición de pago elegidas.
+3. Ingresa el **costo logístico** y **aduanero**, cambia el estado a **“Aceptado”** y guarda.
+   - Al aceptar, el sistema **genera automáticamente una Orden de Compra** (código `OC-2026-XXXX`) vinculada al proveedor.
+
+### Parte 5 — Proveedor: fijar fecha límite y avanzar el pedido
+1. Entra como **proveedor** → **Órdenes de compra**.
+2. La nueva orden está en estado **“Generada”**: **fija la fecha límite de preparación** (regla de negocio) y confírmala → pasa a **“Programada”**.
+3. Avanza el estado del pedido conforme lo preparas: **Preparando → Lista → Despachada → Entregada**.
+
+### Parte 6 — Comprador: seguimiento en tiempo real
+1. Entra como **comprador** → panel principal (**Seguimiento de pedidos**).
+2. Verás una **barra de progreso** de tu Orden de Compra avanzando por los estados
+   (Generada → Programada → Preparando → Lista → Enviada → Entregada), junto con la fecha límite y las condiciones de pago.
+
+### Parte 7 — Asesorías con pago (Stripe / demo)
+1. Con cualquier usuario (comprador o proveedor) entra a **Asesorías** (menú superior).
+2. Elige un servicio y pulsa **Contratar**.
+   - Sin claves de Stripe configuradas, el pago se procesa en **modo demo** y la orden queda como **“PAID”**.
+3. Revisa el resultado en **Panel → Mis asesorías**.
+
+---
+
+## 🛠 Solución de problemas
+
+| Problema | Solución |
 | --- | --- |
-| `DATABASE_URL` | Cadena de conexión SQLite (`file:./dev.db` o `file:/app/data/prod.db` en Docker). |
-| `AUTH_SECRET` | Secreto para firmar JWT de sesión (mínimo 32 caracteres). |
-| `STRIPE_SECRET_KEY` | Clave secreta de Stripe en modo prueba (`sk_test_...`). |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Clave pública de Stripe. |
-| `NEXT_PUBLIC_APP_URL` | URL base usada para `success_url`/`cancel_url` de Stripe. |
-
-Si `STRIPE_SECRET_KEY` no está definido o contiene el valor `replace_me`, el módulo de asesorías opera en **modo demo** y marca los pedidos como pagados sin contactar a Stripe.
+| El catálogo aparece vacío | No se ejecutó el seed. Repite el **paso 2**. |
+| `localhost:3000` no responde | Verifica que el contenedor esté arriba: `docker compose ps`. Revisa logs: `docker logs latamtradex-app`. |
+| El comando de seed no encuentra el volumen | Lista los volúmenes con `docker volume ls` y usa el que termine en `_latamtradex-db`. |
+| Quiero empezar de cero | `docker compose down -v` y repite desde el paso 1. |
+| Cambié código y no se refleja | Reconstruye la imagen: `docker compose up --build -d`. |
 
 ---
 
-## Scripts npm
+## 📂 Documentación adicional
 
-| Script | Acción |
-| --- | --- |
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` | Build de producción (`prisma generate` + `migrate deploy` + `next build`) |
-| `npm start` | Arranque del bundle compilado |
-| `npm run prisma:migrate` | Crea/aplica migraciones en desarrollo |
-| `npm run prisma:seed` | Carga datos iniciales |
-| `npm run db:reset` | Reinicia la base SQLite (¡destructivo!) |
+- [`docs/CAMBIOS_modelo_negocio_v2.md`](docs/CAMBIOS_modelo_negocio_v2.md) — detalle del modelo de datos y flujo de aprobación + órdenes de compra.
 
 ---
-
-## Roles y matriz de acceso
-
-| Acción | Anónimo | BUYER | PROVIDER | ADMIN |
-| --- | :-: | :-: | :-: | :-: |
-| Ver catálogo y detalle | ✅ | ✅ | ✅ | ✅ |
-| Registrarse / iniciar sesión | ✅ | ✅ | ✅ | ✅ |
-| Solicitar cotización | ❌ | ✅ | ❌ | ❌ |
-| Publicar productos | ❌ | ❌ | ✅ | ✅ |
-| Subir documentación | ❌ | ❌ | ✅ | ✅ |
-| Procesar cotizaciones | ❌ | ❌ | ❌ | ✅ |
-| Contratar asesorías | ❌ | ✅ | ✅ | ❌ |
-| Ver usuarios | ❌ | ❌ | ❌ | ✅ |
-
----
-
-## Próximos pasos sugeridos
-
-- Webhooks de Stripe para confirmar pagos de manera asíncrona.
-- Notificaciones por email (Resend / SendGrid) al cambiar estados de cotización.
-- Migrar SQLite a PostgreSQL para multi-tenant en producción.
-- Tests E2E con Playwright (cubrir flujo: registrar comprador → cotizar → admin procesa → comprador acepta).
-
----
-
-## Licencia
 
 Proyecto académico — Máster Universitario 2026. Uso educativo.
