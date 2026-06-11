@@ -6,11 +6,53 @@
 
 ## 📑 Tabla de contenido
 
-1. [Requisitos previos](#-requisitos-previos)
-2. [Ejecutar con Docker](#-ejecutar-con-docker)
-3. [🔑 Credenciales de acceso (demo)](#-credenciales-de-acceso-demo)
-4. [🧭 Guía de uso paso a paso](#-guía-de-uso-paso-a-paso)
-5. [Solución de problemas](#-solución-de-problemas)
+1. [🧪 Ejecutar las pruebas automatizadas](#-ejecutar-las-pruebas-automatizadas)
+2. [Requisitos previos](#-requisitos-previos)
+3. [Ejecutar con Docker](#-ejecutar-con-docker)
+4. [🔑 Credenciales de acceso (demo)](#-credenciales-de-acceso-demo)
+5. [🧭 Guía de uso paso a paso](#-guía-de-uso-paso-a-paso)
+6. [Solución de problemas](#-solución-de-problemas)
+
+---
+
+## 🧪 Ejecutar las pruebas automatizadas
+
+> **Esta es la parte principal de la actividad.** Las pruebas (unitarias y de componentes con **Jest** + **React Testing Library**) se ejecutan dentro de Docker, sin necesidad de instalar nada en tu máquina.
+
+Desde la carpeta raíz del proyecto:
+
+```bash
+# 1. Construir la imagen con las herramientas de prueba (etapa "builder")
+docker build --target builder -t latamtradex-builder .
+
+# 2. Ejecutar toda la suite con reporte de cobertura
+docker run --rm latamtradex-builder npm run test:coverage
+```
+
+Resultado esperado: **40 pruebas en verde (4 suites)**.
+
+```
+Test Suites: 4 passed, 4 total
+Tests:       40 passed, 40 total
+```
+
+### Qué se prueba
+
+| Suite | Funcionalidad crítica |
+| --- | --- |
+| `__tests__/auth.roles.test.ts` | Roles y autenticación — diferencia ADMIN / PROVIDER / BUYER y control de acceso (`requireRole`). |
+| `__tests__/purchaseOrderStateMachine.test.ts` | Máquina de estados de la Orden de Compra (GENERATED → SCHEDULED → PREPARING → … → DELIVERED). |
+| `__tests__/buyerPanelTimeline.test.tsx` | Componente UI del Panel del Comprador (línea de tiempo del pedido). |
+| `__tests__/validation.test.ts` | Esquemas de validación Zod (cotización con pago, registro, moderación). |
+
+### Otros comandos de prueba
+
+```bash
+docker run --rm latamtradex-builder npm test          # ejecutar sin cobertura
+docker run --rm latamtradex-builder npm run test:watch  # modo interactivo (watch)
+```
+
+> ℹ️ Las pruebas corren en la imagen `builder` (que incluye las dependencias de desarrollo). El contenedor de la aplicación en ejecución es una imagen liviana de producción y no incluye el entorno de pruebas, por eso se usa una imagen dedicada.
 
 ---
 
