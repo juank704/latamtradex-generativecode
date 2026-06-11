@@ -31,12 +31,12 @@ git clone https://github.com/juank704/latamtradex-generativecode.git
 cd latamtradex-generativecode
 ```
 
-Los siguientes comandos se ejecutan desde la carpeta raíz del proyecto (donde está el `docker-compose.yml`).
+Los siguientes comandos se ejecutan desde la carpeta raíz del proyecto (donde está el `docker-compose.local.yml`).
 
 ### 1. Construir y levantar la aplicación
 
 ```bash
-docker compose up --build -d
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
 Esto construye la imagen, levanta el contenedor `latamtradex-app` y **aplica automáticamente el esquema de base de datos** (el script de arranque ejecuta `prisma db push`). La app queda disponible en:
@@ -65,10 +65,10 @@ Al terminar verás impresas las credenciales demo. **Recarga http://localhost:30
 ### 3. Detener / reiniciar
 
 ```bash
-docker compose stop      # detener (conserva datos)
-docker compose up -d     # volver a levantar
-docker compose down      # eliminar contenedor (conserva volúmenes/datos)
-docker compose down -v   # eliminar TODO, incluida la base de datos
+docker compose -f docker-compose.local.yml stop      # detener (conserva datos)
+docker compose -f docker-compose.local.yml up -d     # volver a levantar
+docker compose -f docker-compose.local.yml down      # eliminar contenedor (conserva volúmenes/datos)
+docker compose -f docker-compose.local.yml down -v   # eliminar TODO, incluida la base de datos
 ```
 
 ---
@@ -145,10 +145,10 @@ A continuación, un recorrido completo que ejercita todas las funcionalidades. S
 | Problema | Solución |
 | --- | --- |
 | El catálogo aparece vacío | No se ejecutó el seed. Repite el **paso 2**. |
-| `localhost:3000` no responde | Verifica que el contenedor esté arriba: `docker compose ps`. Revisa logs: `docker logs latamtradex-app`. |
+| `localhost:3000` no responde | Verifica que el contenedor esté arriba: `docker compose -f docker-compose.local.yml ps`. Revisa logs: `docker logs latamtradex-app`. |
 | El comando de seed no encuentra el volumen | Lista los volúmenes con `docker volume ls` y usa el que termine en `_latamtradex-db`. |
-| Quiero empezar de cero | `docker compose down -v` y repite desde el paso 1. |
-| Cambié código y no se refleja | Reconstruye la imagen: `docker compose up --build -d`. |
+| Quiero empezar de cero | `docker compose -f docker-compose.local.yml down -v` y repite desde el paso 1. |
+| Cambié código y no se refleja | Reconstruye la imagen: `docker compose -f docker-compose.local.yml up -d --build`. |
 
 ---
 
