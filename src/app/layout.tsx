@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import DemoRunnerMount from '@/components/DemoRunner';
 import { getSession } from '@/lib/auth';
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default async function RootLayout({
         <Navbar session={session} />
         <main className="flex-1">{children}</main>
         <Footer />
+        <DemoRunnerMount />
       </body>
     </html>
   );

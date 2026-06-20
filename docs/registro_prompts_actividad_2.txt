@@ -48,7 +48,7 @@ next/jest en lugar de ts-jest. Lo recomendaste, pero para el App Router de Next.
 
 Ejecución vía imagen builder, no docker compose exec latamtradex-app. Como expliqué al inicio, el contenedor de producción no puede instalar devDependencies de forma persistente. La instalación ocurrió al reconstruir builder (su etapa deps corre npm install) y las pruebas corrieron con docker run --rm latamtradex-builder npm run test:coverage. Es el mismo patrón Docker que usamos para el seed.
 
-2da iteracion:
+#2da iteracion:
 El entorno de pruebas ya está configurado. Ahora necesito que generes los casos de prueba automáticos. Crea una carpeta __tests__ y genera pruebas unitarias y de componentes para las siguientes funcionalidades críticas:
 El modelo de Roles y Autenticación (verifica que la lógica diferencie entre ADMIN, PROVIDER y BUYER).
 El Flujo de la Máquina de Estados de la Orden de Compra (PurchaseOrder), simulando las transiciones de estado (GENERATED → SCHEDULED → PREPARING, etc.).
@@ -106,3 +106,176 @@ Comando para reproducir:
 
 docker build --target builder -t latamtradex-builder .
 docker run --rm latamtradex-builder npm run test:coverage
+
+#3ra Iteracion
+Contexto del proyecto
+App Latamtradex: plataforma Next.js 14 (App Router) dockerizada que actúa como operador logístico. Tiene 3 roles: ADMIN, PROVIDER (proveedor) y BUYER (comprador). Base SQLite vía Prisma. Ya existen tests unitarios con Jest (__tests__/) que corren en la imagen Docker builder.
+
+Credenciales demo (cargadas por el seed prisma/seed.ts, clave única Latamtradex2026!):
+
+admin@latamtradex.com (ADMIN)
+proveedor@latamtradex.com (PROVIDER)
+comprador@latamtradex.com (BUYER)
+Flujo de negocio completo a cubrir (extremo a extremo):
+
+Proveedor publica un producto (queda "En revisión") y sube documentación.
+Admin modera: aprueba el producto (aparece en catálogo) y aprueba el documento.
+Comprador solicita una cotización desde el catálogo (cantidad, destino, Incoterm, forma y condición de pago).
+Admin ingresa costo logístico/aduanero y acepta → el sistema genera automáticamente una Orden de Compra (OC-2026-XXXX).
+Proveedor fija fecha límite y avanza la orden: Generada → Programada → Preparando → Lista → Despachada → Entregada.
+Comprador ve el seguimiento (barra de progreso) actualizado.
+Asesorías: contratar un servicio con pago en modo demo (sin claves Stripe) → queda "PAID".
+Rutas relevantes: src/app/login/LoginForm.tsx, src/app/catalogo/, src/app/productos/[id]/QuoteForm.tsx, src/app/dashboard/proveedor/{productos,documentos,ordenes}/, src/app/dashboard/admin/{productos,documentos,cotizaciones}/, src/app/dashboard/comprador/ (PurchaseOrderTracker.tsx), src/app/asesorias/.
+
+Objetivo
+Construir dos entregables complementarios que compartan la misma definición de pasos del flujo:
+
+Parte A — Tests E2E reales con Playwright (corren en Docker, imagen builder)
+Configurar Playwright en el proyecto (@playwright/test, playwright.config.ts).
+Suite E2E que cubra login de los 3 roles + el flujo completo descrito arriba (idealmente un spec de "happy path" end-to-end + specs más pequeños por rol).
+Debe poder ejecutarse:
+Headless dentro de Docker, empaquetando Playwright + navegadores en la etapa builder del Dockerfile (igual que los tests Jest), con un script tipo npm run e2e. Ejemplo de uso: docker run --rm latamtradex-builder npm run e2e.
+Headed con --slowmo para verlo en vivo en desarrollo local, y dejar habilitado trace/UI mode (--trace on) para revisar cada paso con screenshots time-travel.
+baseURL configurable por variable de entorno (E2E_BASE_URL), con default http://localhost:3000, para poder apuntar también a la URL desplegada (https://latamtradex-actividad1.azucarsintactica.com).
+Requisito de datos: el flujo asume el seed cargado. Documentar/automatizar que la BD esté sembrada antes de correr. Donde el flujo cree datos nuevos (producto, cotización, orden), usar nombres/identificadores únicos para que sea repetible (idempotente), o limpiar al final.
+Añadir data-testid en los elementos clave de la UI (inputs de login, botones de aprobar/aceptar/avanzar estado, formulario de cotización) para selectores estables, sin alterar el comportamiento ni el diseño.
+Reportar resultados claros (n.º de tests verdes) y artefactos (trace/video/screenshots en fallo).
+Parte B — Overlay de demo autoejecutable dentro de la app
+Componente React (overlay semitransparente con botón ▶ Play / ⏸ / ⏹ y barra de progreso + log de pasos) montado sobre la propia app.
+Al darle Play, autoejecuta el mismo flujo manejando la UI real: rellena login, hace submit, navega, aprueba, cotiza, avanza la orden, etc., resaltando visualmente el elemento con el que interactúa en cada paso.
+Debe sobrevivir a las navegaciones de página de Next.js (cada cambio de ruta recarga/desmonta): persistir el estado del runner (paso actual, rol activo) en localStorage y re-inyectarse/continuar automáticamente tras cada navegación.
+Que sea claramente un demo de presentación, NO un test (no asevera para CI). Debe poder activarse/desactivarse fácilmente (p. ej. flag por query param ?demo=1 o variable de entorno) para que no aparezca en producción por defecto.
+Reutilizar la misma definición de pasos que la Parte A: definir el flujo una sola vez (lista de pasos: selector + acción + valor + descripción) y que tanto Playwright como el overlay la consuman, para no duplicar lógica.
+Entorno y restricciones
+Ejecución de tests: dentro de Docker, imagen builder (no exigir instalar nada en la máquina host salvo Docker). Headless en contenedor; headed disponible en local.
+No romper los tests Jest existentes ni el arranque normal de la app.
+No exponer el overlay de demo en el build de producción por defecto.
+Mantener el estilo/idioma del proyecto (español, mismas convenciones de código).
+Entregables esperados
+playwright.config.ts + carpeta e2e/ con los specs del flujo.
+Definición compartida del flujo (p. ej. e2e/flow.shared.ts) consumida por Playwright y por el overlay.
+Componente overlay (p. ej. src/components/DemoRunner/) + su activación condicionada.
+data-testid añadidos donde haga falta.
+Cambios en Dockerfile (instalar Playwright + navegadores en builder) y scripts en package.json (e2e, e2e:headed, e2e:ui).
+Sección nueva en el README.md explicando cómo correr los E2E en Docker y cómo activar el overlay de demo.
+Resumen final de qué se cubrió y cómo verificarlo.
+
+#Respuesta IA
+Ahora redespliego la app para que el overlay y los data-testid queden en vivo, y hago smoke test:
+
+El build de la imagen de producción sí se completó (la app se reconstruyó con el overlay y los testids); el arranque falló solo porque el puerto 3000 del host está ocupado por otro contenedor tuyo (dokploy), ajeno a este proyecto. No voy a tocar tu dokploy. La verificación crítica (Jest + E2E) ya pasó en Docker de forma independiente del puerto del host.
+
+Confirmo que la imagen quedó construida y dejo el contenedor listo para arrancar cuando liberes el 3000
+
+Parte A — Tests E2E con Playwright ✅ (6/6 verdes)
+Archivo	Contenido
+playwright.config.ts	baseURL por E2E_BASE_URL (default localhost:3000), trace: on, screenshots en fallo, slowMo por env, Chromium del sistema, y webServer que siembra la BD y arranca la app.
+e2e/runner.ts	Adaptador que ejecuta la definición compartida de pasos con la API de Playwright.
+e2e/login.spec.ts	Login de los 3 roles + control de acceso (buyer no entra a admin, anónimo redirige).
+e2e/happy-path.spec.ts	Flujo completo extremo a extremo consumiendo buildDemoFlow().
+Verificado: docker run --rm latamtradex-builder npm run e2e → 6 passed (incluye el happy path: proveedor publica → admin aprueba → comprador cotiza con pago → admin acepta y genera OC → proveedor avanza la orden → comprador ve seguimiento → asesoría pagada). Datos idempotentes (producto Café E2E <timestamp>), trace activado, E2E_BASE_URL para apuntar a la URL desplegada.
+
+Parte B — Overlay de demo ✅
+Archivo	Contenido
+src/lib/demoFlow.ts	Definición única del flujo (pasos: acción + testid + valor + descripción) que consumen Playwright y el overlay.
+src/components/DemoRunner/	Overlay con ▶/⏸/⏹, barra de progreso y log; resalta el elemento activo; persiste en localStorage y continúa tras cada navegación; se activa con ?demo=1 (desactiva con ?demo=0), oculto por defecto.
+Activación: http://localhost:3000/?demo=1 → Play.
+
+Otros cambios
+data-testid estables en login, catálogo, cotización, moderación admin, cotizaciones admin, órdenes del proveedor y asesorías (sin alterar diseño).
+Dockerfile: Chromium + libs en la etapa builder, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD y PLAYWRIGHT_CHROMIUM_PATH.
+package.json: scripts e2e, e2e:headed, e2e:ui, e2e:server + @playwright/test.
+README.md: secciones nuevas de E2E y overlay.
+Jest intacto: 43/43 verdes (añadí __tests__/demoFlow.test.ts).
+Decisiones técnicas que conviene saber
+Chromium del sistema en Alpine (no descarga de navegadores Playwright) por la incompatibilidad musl/glibc; lanzado con --no-sandbox.
+Vídeo desactivado (Alpine no trae ffmpeg); se mantienen trace + screenshots para revisión time-travel.
+El flujo se define una sola vez; los runners de Playwright y del overlay solo difieren en cómo ejecutan cada acción.
+⚠️ Único punto pendiente (no es del código)
+Al redesplegar la app para probar el overlay en vivo, el arranque falló porque otro contenedor tuyo, dokploy, está ocupando el puerto 3000 del host (apareció durante esta sesión; antes la app sí levantaba en 3000). La imagen de producción se reconstruyó correctamente (386 MB, con overlay y testids), confirmando que el build compila. Para levantar la app y probar ?demo=1 en vivo, libera el 3000 y ejecuta:
+
+
+docker compose -f docker-compose.local.yml up -d
+Los tests (Jest y E2E) no dependen de ese puerto del host —corren con su propio servidor dentro del contenedor—, por eso quedaron verificados en verde igualmente.
+
+¿Quieres que levante la app en otro puerto (p. ej. 3001) temporalmente para que pruebes el overlay sin tocar dokploy?
+
+#4ta Iteracion
+Vuelvelo a intentar, el docker tenia un contexto de un servidor de produccion, ya realice la asignacion de docker context use default para hacer la prueba en el local primero, verfica de todas formas que se esta usando la maquina local windows, los puertos deberian estar habilitados
+
+#Respuesta IA
+Confirmado: todo corre ahora en tu máquina local (Windows Docker Desktop, contexto default).
+
+Verificación local — todo en verde ✅
+Comprobación	Resultado
+Contexto Docker	default → npipe:////./pipe/docker_engine (local Windows)
+App en local	http://localhost:3000 → 200 (/, /catalogo, /login)
+Overlay demo	http://localhost:3000/?demo=1 → 200
+Pruebas Jest	43/43 verdes
+Pruebas E2E Playwright	6/6 verdes (happy path completo + login 3 roles + control de acceso)
+Base de datos	sembrada (admin/proveedor/comprador, clave Latamtradex2026!)
+El conflicto anterior era exactamente eso: los builds se estaban ejecutando contra el contexto ubuntu-server (SSH al servidor de producción donde corre dokploy en el 3000). Con docker context use default ya todo apunta a Docker Desktop local y el puerto 3000 está libre.
+
+Para que pruebes ahora mismo
+App: abre http://localhost:3000
+Demo guiada: abre http://localhost:3000/?demo=1 y pulsa ▶ Play (login → publica → aprueba → cotiza → genera OC → avanza la orden → seguimiento → asesoría pagada, resaltando cada elemento).
+E2E: docker run --rm latamtradex-builder npm run e2e
+Unitarias: docker run --rm latamtradex-builder npm run test:coverage
+Una nota menor (cosmética)
+El contenedor aparece como (unhealthy) aunque responde 200 correctamente. Es el healthcheck con wget --spider del compose, que da ese estado desde antes de estos cambios (no afecta el funcionamiento; la app sirve perfectamente). Si quieres lo ajusto a un check con GET real para que muestre healthy. ¿Lo dejo así o lo corrijo?
+
+#5ta iteracion
+el ultimo test 
+
+✗ Contratar la primera asesoría (pago demo) — No se encontró la fila "asesoria-card" con texto "Asesoría"
+
+y no hacer el paso 68/68 revisa que puede estar sucediendo y haz los cambios correspondientes
+
+#Respuesta IA
+Qué estaba pasando
+El HTML confirmó que la tarjeta sí existe (3 asesoria-card, la primera con "Asesoría en Certificación") — por eso Playwright pasaba ese paso. El fallo era exclusivo del overlay, por dos motivos:
+
+Emparejamiento frágil por texto de fila. El paso usaba clickInRow buscando una fila asesoria-card que contuviera el texto "Asesoría". El adaptador del overlay (textContent.includes) es más estricto que el hasText de Playwright y, combinado con el timing de carga, no encontraba la fila.
+El paso 68 corría demasiado pronto. El botón "Contratar" dispara un fetch a /api/checkout y luego redirige a /checkout/success de forma asíncrona; la verificación expectText 'Pago confirmado' se evaluaba una sola vez antes de que la página redirigida montara el contenido.
+Cambios aplicados
+src/lib/demoFlow.ts — el paso buyer-contratar ahora es un click directo sobre el primer botón asesoria-contratar (en vez de clickInRow por texto). Elimina la fragilidad y encaja con "contratar la primera asesoría". Aplica por igual a Playwright y al overlay (definición compartida).
+src/components/DemoRunner/domActions.ts:
+expectText ahora hace polling hasta 12s esperando a que el texto aparezca → el paso 68 (Pago confirmado) ya no falla por la redirección.
+El click sobre asesoria-contratar se trata como acción con navegación (espera ~2s, como login/logout) para dar tiempo al fetch + redirección.
+Verificación
+E2E Playwright: 6/6 verdes con el flujo actualizado (local, contexto default).
+App: http://localhost:3000, /?demo=1 y /asesorias → 200, imagen reconstruida y reiniciada.
+Vuelve a abrir http://localhost:3000/?demo=1 y pulsa ▶ Play: ahora el último tramo (contratar asesoría → "Pago confirmado") debería completar el 68/68. Si quieres, puedo añadir también un resaltado del botón de contratar durante esos 2s de espera para que se vea más claro en la presentación.
+
+#6ta iteracion
+revisa el error
+
+🎬 Demo guiada — Flujo completo Latamtradex
+▶ Play
+⏸ Pausa
+⏹ Stop
+Paso 67 / 68 · 97%
+
+• Contratar la primera asesoría (pago demo)
+
+✗ Contratar la primera asesoría (pago demo) — No se encontró el elemento [data-testid="asesoria-contratar"]
+
+#Repuesta IA
+Causa raíz (confirmada con reproducción)
+El click en "Contratar" funcionaba y redirigía a /checkout/success, pero esa recarga completa (window.location.href) ocurría mientras el paso seguía esperando — antes de que el runner pudiera persistir el avance del índice. Al recargar, el overlay reanudaba en el mismo paso 67 sobre /checkout/success, donde ya no existe el botón asesoria-contratar → de ahí el "No se encontró el elemento".
+
+Lo confirmé porque, en el momento del fallo, la URL ya era /checkout/success (el click sí había funcionado).
+
+El arreglo
+En src/components/DemoRunner/domActions.ts: el click en asesoria-contratar ahora se trata como navegación (return { navigated: true }), igual que los pasos navigate. Así el runner persiste el índice del paso siguiente antes de que la página se descargue; al recargar, continúa en el paso 68 (expectText "Pago confirmado", con polling) y lo completa.
+
+De paso, dejé los logins/logout esperando a que la ruta cambie de verdad (en vez de esperas fijas), eliminando una fragilidad de timing.
+
+Verificación
+Reproducción del overlay completo en localhost (contexto correcto): DIAG done=true, sin fallos, termina en /checkout/success → 68/68.
+Suite E2E Playwright: 6/6 verdes (tras quitar el spec de diagnóstico).
+App reconstruida y reiniciada en local.
+Nota técnica útil
+Durante el diagnóstico descubrí que la cookie de sesión es Secure en producción (NODE_ENV=production). Los navegadores solo guardan cookies Secure en contextos seguros: http://localhost lo es (por eso a ti te funciona el login), pero http://host.docker.internal o una IP no lo son. Tenlo en cuenta si algún día sirves la app por HTTP en un host que no sea localhost — ahí el login fallaría hasta poner HTTPS. En tu uso local y en el despliegue HTTPS no hay problema.
+
+Vuelve a abrir http://localhost:3000/?demo=1 y dale ▶ Play: ahora debería llegar hasta el final (asesoría → "Pago confirmado", 68/68).

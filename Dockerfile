@@ -6,18 +6,34 @@
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
+# Evita que @playwright/test descargue navegadores en la instalacion
+# (en Alpine usamos el Chromium del sistema instalado en la etapa builder).
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 COPY package.json package-lock.json* ./
 RUN npm install --legacy-peer-deps
 
 # ---------- Stage 2: builder ----------
+# Esta etapa incluye TODO el toolchain de desarrollo y se usa tambien para
+# ejecutar las pruebas (Jest unitarias y Playwright E2E).
 FROM node:20-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
+# Chromium del sistema + dependencias para Playwright en Alpine.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # DATABASE_URL placeholder solo para build (la real se inyecta en runtime via docker-compose)
 ENV DATABASE_URL="file:./build-placeholder.db"
+# Playwright usa el Chromium del sistema (no descarga binarios propios).
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium-browser
 RUN npx prisma generate
 RUN npm run build
 

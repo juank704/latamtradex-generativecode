@@ -15,7 +15,12 @@ export default function LogoutButton() {
   }
 
   return (
-    <button onClick={handleLogout} disabled={loading} className="btn-secondary text-xs">
+    <button
+      onClick={handleLogout}
+      disabled={loading}
+      className="btn-secondary text-xs"
+      data-testid="nav-logout"
+    >
       {loading ? 'Cerrando...' : 'Salir'}
     </button>
   );

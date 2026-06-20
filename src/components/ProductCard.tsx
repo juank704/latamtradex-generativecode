@@ -14,7 +14,11 @@ type ProductCardProduct = {
 
 export default function ProductCard({ product }: { product: ProductCardProduct }) {
   return (
-    <Link href={`/productos/${product.id}`} className="card hover:shadow-md transition block">
+    <Link
+      href={`/productos/${product.id}`}
+      className="card hover:shadow-md transition block"
+      data-testid="product-card"
+    >
       <div className="aspect-[4/3] bg-slate-100 overflow-hidden">
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

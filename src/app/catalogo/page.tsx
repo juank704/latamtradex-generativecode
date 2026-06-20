@@ -54,6 +54,7 @@ export default async function CatalogoPage({
           defaultValue={q}
           placeholder="Buscar producto, descripción o ciudad..."
           className="input sm:col-span-2"
+          data-testid="catalogo-search"
         />
         <select name="cat" defaultValue={cat} className="input">
           <option value="">Todas las categorías</option>

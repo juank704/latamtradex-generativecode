@@ -69,7 +69,7 @@ function ProductRow({ product }: { product: Product }) {
   }
 
   return (
-    <div className="card p-4">
+    <div className="card p-4" data-testid="mod-product-row">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex gap-3">
           {product.imageUrl && (
@@ -114,6 +114,7 @@ function ProductRow({ product }: { product: Product }) {
           onClick={() => moderate('APPROVED')}
           disabled={loading !== null}
           className="btn-primary"
+          data-testid="mod-product-approve"
         >
           {loading === 'APPROVED' ? '...' : 'Aprobar'}
         </button>

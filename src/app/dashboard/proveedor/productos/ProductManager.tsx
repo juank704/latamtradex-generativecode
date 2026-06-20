@@ -64,7 +64,11 @@ export default function ProductManager({ products }: { products: Product[] }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <button onClick={() => setShowForm((v) => !v)} className="btn-primary">
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="btn-primary"
+          data-testid="prod-new-toggle"
+        >
           {showForm ? 'Cancelar' : '+ Nuevo producto'}
         </button>
       </div>
@@ -74,7 +78,7 @@ export default function ProductManager({ products }: { products: Product[] }) {
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Nombre</label>
-              <input name="name" required className="input" />
+              <input name="name" required className="input" data-testid="prod-name" />
             </div>
             <div>
               <label className="label">Categoría</label>
@@ -83,17 +87,30 @@ export default function ProductManager({ products }: { products: Product[] }) {
                 required
                 className="input"
                 placeholder="Alimentos, Frutas, ..."
+                data-testid="prod-category"
               />
             </div>
           </div>
           <div>
             <label className="label">Descripción</label>
-            <textarea name="description" rows={3} required className="input" />
+            <textarea
+              name="description"
+              rows={3}
+              required
+              className="input"
+              data-testid="prod-description"
+            />
           </div>
           <div className="grid sm:grid-cols-4 gap-4">
             <div>
               <label className="label">Unidad</label>
-              <input name="unit" required className="input" placeholder="kg, caja..." />
+              <input
+                name="unit"
+                required
+                className="input"
+                placeholder="kg, caja..."
+                data-testid="prod-unit"
+              />
             </div>
             <div>
               <label className="label">Precio USD</label>
@@ -103,6 +120,7 @@ export default function ProductManager({ products }: { products: Product[] }) {
                 step="0.01"
                 required
                 className="input"
+                data-testid="prod-price"
               />
             </div>
             <div>
@@ -114,11 +132,12 @@ export default function ProductManager({ products }: { products: Product[] }) {
                 defaultValue={1}
                 required
                 className="input"
+                data-testid="prod-minqty"
               />
             </div>
             <div>
               <label className="label">Ciudad origen</label>
-              <input name="originCity" required className="input" />
+              <input name="originCity" required className="input" data-testid="prod-city" />
             </div>
           </div>
           <div>
@@ -131,7 +150,12 @@ export default function ProductManager({ products }: { products: Product[] }) {
               {error}
             </div>
           )}
-          <button type="submit" disabled={loading} className="btn-primary">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary"
+            data-testid="prod-submit"
+          >
             {loading ? 'Guardando...' : 'Publicar producto'}
           </button>
         </form>

@@ -61,6 +61,7 @@ export default function QuoteForm({
           defaultValue={minOrderQty}
           required
           className="input"
+          data-testid="quote-quantity"
         />
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
@@ -74,6 +75,7 @@ export default function QuoteForm({
             required
             className="input"
             placeholder="Santiago"
+            data-testid="quote-dest-city"
           />
         </div>
         <div>
@@ -86,6 +88,7 @@ export default function QuoteForm({
             required
             className="input"
             placeholder="Chile"
+            data-testid="quote-dest-country"
           />
         </div>
       </div>
@@ -93,7 +96,13 @@ export default function QuoteForm({
         <label className="label" htmlFor="incoterm">
           Incoterm preferido
         </label>
-        <select id="incoterm" name="incoterm" className="input" defaultValue="CIF">
+        <select
+          id="incoterm"
+          name="incoterm"
+          className="input"
+          defaultValue="CIF"
+          data-testid="quote-incoterm"
+        >
           <option value="EXW">EXW (En fábrica)</option>
           <option value="FOB">FOB (Libre a bordo)</option>
           <option value="CIF">CIF (Costo, seguro y flete)</option>
@@ -119,6 +128,7 @@ export default function QuoteForm({
                 value={m.value}
                 defaultChecked={i === 0}
                 className="text-brand-600"
+                data-testid={`quote-pay-${m.value}`}
               />
               {m.label}
             </label>
@@ -135,6 +145,7 @@ export default function QuoteForm({
           name="paymentCondition"
           className="input"
           defaultValue="ON_DELIVERY"
+          data-testid="quote-payment-condition"
         >
           <option value="UPFRONT">Al contado (anticipado)</option>
           <option value="ON_DELIVERY">A la entrega de la carga</option>
@@ -152,7 +163,12 @@ export default function QuoteForm({
           {error}
         </div>
       )}
-      <button type="submit" disabled={loading} className="btn-primary w-full">
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn-primary w-full"
+        data-testid="quote-submit"
+      >
         {loading ? 'Enviando...' : 'Solicitar cotización'}
       </button>
     </form>

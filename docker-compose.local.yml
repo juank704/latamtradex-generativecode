@@ -20,7 +20,7 @@ services:
     container_name: latamtradex-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "7084:3000"
     environment:
       NODE_ENV: production
       DATABASE_URL: "file:/app/data/prod.db"

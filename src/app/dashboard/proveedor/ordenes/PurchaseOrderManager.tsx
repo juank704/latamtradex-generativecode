@@ -103,7 +103,7 @@ function OrderRow({ order }: { order: Order }) {
   const allowed = getNextStates(order.status as PurchaseOrderStatus);
 
   return (
-    <div className="card p-4">
+    <div className="card p-4" data-testid="order-row">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-slate-900">
@@ -137,6 +137,7 @@ function OrderRow({ order }: { order: Order }) {
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
                 className="input"
+                data-testid="order-deadline-input"
               />
             </div>
             <div>
@@ -149,7 +150,12 @@ function OrderRow({ order }: { order: Order }) {
               />
             </div>
           </div>
-          <button type="submit" disabled={loading} className="btn-primary">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary"
+            data-testid="order-deadline-submit"
+          >
             {loading ? 'Guardando...' : 'Confirmar fecha límite'}
           </button>
         </form>
@@ -169,6 +175,7 @@ function OrderRow({ order }: { order: Order }) {
               onClick={() => advance(s)}
               disabled={loading}
               className={s === 'CANCELED' ? 'btn-danger' : 'btn-secondary'}
+              data-testid={`order-advance-${s}`}
             >
               {statusLabels[s] ?? s}
             </button>

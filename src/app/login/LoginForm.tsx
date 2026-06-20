@@ -42,20 +42,39 @@ export default function LoginForm() {
         <label className="label" htmlFor="email">
           Correo electrónico
         </label>
-        <input id="email" name="email" type="email" required className="input" />
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          className="input"
+          data-testid="login-email"
+        />
       </div>
       <div>
         <label className="label" htmlFor="password">
           Contraseña
         </label>
-        <input id="password" name="password" type="password" required className="input" />
+        <input
+          id="password"
+          name="password"
+          type="password"
+          required
+          className="input"
+          data-testid="login-password"
+        />
       </div>
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
           {error}
         </div>
       )}
-      <button type="submit" disabled={loading} className="btn-primary w-full">
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn-primary w-full"
+        data-testid="login-submit"
+      >
         {loading ? 'Ingresando...' : 'Ingresar'}
       </button>
     </form>

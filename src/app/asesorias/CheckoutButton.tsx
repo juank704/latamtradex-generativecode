@@ -31,7 +31,12 @@ export default function CheckoutButton({
 
   return (
     <div className="space-y-2">
-      <button onClick={onClick} disabled={loading} className="btn-primary w-full">
+      <button
+        onClick={onClick}
+        disabled={loading}
+        className="btn-primary w-full"
+        data-testid="asesoria-contratar"
+      >
         {loading ? 'Redirigiendo...' : stripeReady ? 'Contratar con Stripe' : 'Contratar (demo)'}
       </button>
       {error && <p className="text-xs text-red-600 text-center">{error}</p>}

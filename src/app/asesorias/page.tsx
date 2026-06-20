@@ -37,7 +37,7 @@ export default async function AsesoriasPage() {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {services.map((s) => (
-          <div key={s.id} className="card p-6 flex flex-col">
+          <div key={s.id} className="card p-6 flex flex-col" data-testid="asesoria-card">
             <span className="badge bg-brand-50 text-brand-700 mb-3 w-fit">
               {categoryLabel[s.category] ?? s.category}
             </span>

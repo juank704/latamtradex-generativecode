@@ -39,3 +39,12 @@ body {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
 }
+
+/* Resaltado del elemento activo durante la demo guiada (overlay DemoRunner) */
+.lt-demo-highlight {
+  outline: 3px solid #f59e0b !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.25) !important;
+  transition: outline-color 0.2s ease;
+}

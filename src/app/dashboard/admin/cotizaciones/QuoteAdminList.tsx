@@ -96,10 +96,11 @@ function QuoteRow({ quote }: { quote: Quote }) {
   }
 
   return (
-    <div className="card">
+    <div className="card" data-testid="admin-quote-row">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50"
+        data-testid="admin-quote-expand"
       >
         <div>
           <p className="font-semibold text-slate-900">{quote.product.name}</p>
@@ -146,6 +147,7 @@ function QuoteRow({ quote }: { quote: Quote }) {
                   min={0}
                   defaultValue={quote.logisticsCost ?? ''}
                   className="input"
+                  data-testid="admin-quote-logistics"
                 />
               </div>
               <div>
@@ -157,11 +159,17 @@ function QuoteRow({ quote }: { quote: Quote }) {
                   min={0}
                   defaultValue={quote.customsCost ?? ''}
                   className="input"
+                  data-testid="admin-quote-customs"
                 />
               </div>
               <div className="col-span-2">
                 <label className="label">Estado</label>
-                <select name="status" className="input" defaultValue={quote.status}>
+                <select
+                  name="status"
+                  className="input"
+                  defaultValue={quote.status}
+                  data-testid="admin-quote-status"
+                >
                   <option value="PENDING">Pendiente</option>
                   <option value="QUOTED">Cotizado</option>
                   <option value="ACCEPTED">Aceptado</option>
@@ -184,7 +192,12 @@ function QuoteRow({ quote }: { quote: Quote }) {
               {error}
             </div>
           )}
-          <button type="submit" disabled={loading} className="btn-primary">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary"
+            data-testid="admin-quote-save"
+          >
             {loading ? 'Guardando...' : 'Guardar cotización'}
           </button>
         </form>

@@ -7,11 +7,13 @@
 ## 📑 Tabla de contenido
 
 1. [🧪 Ejecutar las pruebas automatizadas](#-ejecutar-las-pruebas-automatizadas)
-2. [Requisitos previos](#-requisitos-previos)
-3. [Ejecutar con Docker](#-ejecutar-con-docker)
-4. [🔑 Credenciales de acceso (demo)](#-credenciales-de-acceso-demo)
-5. [🧭 Guía de uso paso a paso](#-guía-de-uso-paso-a-paso)
-6. [Solución de problemas](#-solución-de-problemas)
+2. [🎭 Pruebas E2E con Playwright](#-pruebas-e2e-con-playwright-flujo-completo)
+3. [▶️ Overlay de demo guiada](#️-overlay-de-demo-guiada-presentación-en-vivo)
+4. [Requisitos previos](#-requisitos-previos)
+5. [Ejecutar con Docker](#-ejecutar-con-docker)
+6. [🔑 Credenciales de acceso (demo)](#-credenciales-de-acceso-demo)
+7. [🧭 Guía de uso paso a paso](#-guía-de-uso-paso-a-paso)
+8. [Solución de problemas](#-solución-de-problemas)
 
 ---
 
@@ -29,11 +31,11 @@ docker build --target builder -t latamtradex-builder .
 docker run --rm latamtradex-builder npm run test:coverage
 ```
 
-Resultado esperado: **40 pruebas en verde (4 suites)**.
+Resultado esperado: **43 pruebas en verde (5 suites)**.
 
 ```
-Test Suites: 4 passed, 4 total
-Tests:       40 passed, 40 total
+Test Suites: 5 passed, 5 total
+Tests:       43 passed, 43 total
 ```
 
 ### Qué se prueba
@@ -44,6 +46,7 @@ Tests:       40 passed, 40 total
 | `__tests__/purchaseOrderStateMachine.test.ts` | Máquina de estados de la Orden de Compra (GENERATED → SCHEDULED → PREPARING → … → DELIVERED). |
 | `__tests__/buyerPanelTimeline.test.tsx` | Componente UI del Panel del Comprador (línea de tiempo del pedido). |
 | `__tests__/validation.test.ts` | Esquemas de validación Zod (cotización con pago, registro, moderación). |
+| `__tests__/demoFlow.test.ts` | Definición compartida del flujo E2E/demo (hitos del negocio). |
 
 ### Otros comandos de prueba
 
@@ -53,6 +56,71 @@ docker run --rm latamtradex-builder npm run test:watch  # modo interactivo (watc
 ```
 
 > ℹ️ Las pruebas corren en la imagen `builder` (que incluye las dependencias de desarrollo). El contenedor de la aplicación en ejecución es una imagen liviana de producción y no incluye el entorno de pruebas, por eso se usa una imagen dedicada.
+
+---
+
+## 🎭 Pruebas E2E con Playwright (flujo completo)
+
+Pruebas **end-to-end** reales que manejan un navegador (Chromium) y recorren el flujo de negocio completo: proveedor publica → admin aprueba → comprador cotiza → admin acepta (genera la Orden de Compra) → proveedor avanza la orden → comprador ve el seguimiento → asesoría con pago demo.
+
+Corren **dentro de Docker** (misma imagen `builder`), que ya incluye Playwright + Chromium. El propio comando levanta un servidor con la base **sembrada** automáticamente.
+
+```bash
+# Construir la imagen (si no se hizo ya)
+docker build --target builder -t latamtradex-builder .
+
+# Ejecutar toda la suite E2E (headless)
+docker run --rm latamtradex-builder npm run e2e
+```
+
+Resultado esperado: **6 pruebas en verde**.
+
+```
+✓ flujo completo de negocio (happy path)
+✓ login como ADMIN / PROVIDER / BUYER redirige a su panel
+✓ un BUYER no puede acceder al panel de ADMIN
+✓ una visita anónima al panel redirige a login
+6 passed
+```
+
+### Variantes
+
+```bash
+# Apuntar a una URL ya desplegada (no levanta servidor local ni siembra):
+docker run --rm -e E2E_BASE_URL=https://latamtradex-actividad1.azucarsintactica.com \
+  latamtradex-builder npm run e2e
+
+# En local (fuera de Docker), ver el navegador en vivo y a cámara lenta:
+npm install
+npx playwright install chromium
+E2E_SLOWMO=400 npm run e2e:headed   # con --slowmo
+npm run e2e:ui                       # modo UI con time-travel
+```
+
+- **`baseURL`** se controla con `E2E_BASE_URL` (por defecto `http://localhost:3000`).
+- **Trace activado** (`trace: on`): cada paso queda registrado con screenshots time-travel. Tras una corrida, abre el reporte con `npx playwright show-report` o un trace con `npx playwright show-trace <archivo>`. En fallo se guardan screenshots en `test-results/`.
+- **Datos**: el script `e2e:server` ejecuta `prisma db push` + seed antes de arrancar. El flujo crea un producto con **nombre único por corrida** (`Café E2E <timestamp>`), por lo que es repetible (idempotente).
+
+---
+
+## ▶️ Overlay de demo guiada (presentación en vivo)
+
+Además de los tests, la app incluye un **overlay de demostración** que reproduce el mismo flujo manejando la UI real (rellena formularios, aprueba, cotiza, avanza la orden…), resaltando cada elemento. Es **solo para presentación**, no es un test.
+
+### Cómo activarlo
+
+Añade `?demo=1` a la URL de la app y aparecerá un panel flotante abajo a la derecha:
+
+```
+http://localhost:3000/?demo=1
+```
+
+- Pulsa **▶ Play** para iniciar la demo guiada. Verás la barra de progreso y el log de pasos.
+- **⏸ Pausa** / **⏹ Stop** para controlarla.
+- Sobrevive a los cambios de página (persiste su estado en `localStorage` y continúa tras cada navegación).
+- Para desactivarlo: `?demo=0` (o pulsa Stop). **No aparece por defecto** (requiere activación explícita), por lo que no se muestra en producción.
+
+> Tanto el overlay como los tests E2E consumen la **misma definición de pasos** (`src/lib/demoFlow.ts`), de modo que el flujo se define una sola vez.
 
 ---
 
