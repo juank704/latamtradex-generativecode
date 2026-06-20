@@ -39,6 +39,51 @@ services:
       retries: 3
       start_period: 30s
 
+  # ----------------------------------------------------------
+  # Servicio de PRUEBAS (perfil "tests"). No arranca por defecto.
+  # Usa la etapa "builder" (Playwright + Chromium + Jest) y levanta
+  # internamente su propio servidor con la base sembrada.
+  #   Unitarias: docker compose -f docker-compose.local.yml --profile tests run --rm unit
+  #   E2E:       docker compose -f docker-compose.local.yml --profile tests run --rm e2e
+  # ----------------------------------------------------------
+  unit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: latamtradex-builder:latest
+    profiles: ["tests"]
+    command: npm run test:coverage
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: latamtradex-builder:latest
+    profiles: ["tests"]
+    # Por defecto levanta su propio servidor en localhost. Para apuntar a la URL
+    # desplegada: añade  -e E2E_BASE_URL=https://latamtradex-actividad2.azucarsintactica.com/
+    command: npm run e2e
+
+  # ----------------------------------------------------------
+  # Servicio de SEED (perfil "tools"). Carga los datos demo en la MISMA base
+  # de datos que usa la app (volumen latamtradex-db), reutilizable tras "up".
+  #   docker compose -f docker-compose.local.yml --profile tools run --rm seed
+  # ----------------------------------------------------------
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: latamtradex-builder:latest
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: "file:/app/data/prod.db"
+    volumes:
+      - latamtradex-db:/app/data
+    command: npx tsx prisma/seed.ts
+
 volumes:
   latamtradex-db:
     driver: local

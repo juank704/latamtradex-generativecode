@@ -2,6 +2,15 @@
 
 > Plataforma web full-stack que funciona como **operador logístico**: conecta proveedores latinoamericanos con compradores en el exterior (Chile, Perú y otros mercados), eliminando la fricción aduanera con cotizaciones logísticas integrales, moderación de productos/documentos, órdenes de compra con seguimiento y asesorías con pago en línea.
 
+> 🧪 **Actividad 2 — Pruebas automatizadas.** Esta entrega añade pruebas unitarias (Jest), pruebas E2E reales (Playwright) y un **overlay de demo autoejecutable**. Puedes verlas funcionando directamente en producción o en local con Docker (ver secciones de abajo).
+
+### 🌐 Demo en producción
+
+> **URL de producción:** **https://latamtradex-actividad2.azucarsintactica.com/**
+>
+> Para ver las pruebas del flujo completo ejecutándose en vivo, abre:
+> **https://latamtradex-actividad2.azucarsintactica.com/?demo=1** y pulsa **▶ Play** en el panel de la **esquina inferior derecha**.
+
 ---
 
 ## 📑 Tabla de contenido
@@ -19,15 +28,16 @@
 
 ## 🧪 Ejecutar las pruebas automatizadas
 
-> **Esta es la parte principal de la actividad.** Las pruebas (unitarias y de componentes con **Jest** + **React Testing Library**) se ejecutan dentro de Docker, sin necesidad de instalar nada en tu máquina.
+> **Actividad 2 — parte principal.** Las pruebas (unitarias y de componentes con **Jest** + **React Testing Library**) se ejecutan dentro de Docker, sin necesidad de instalar nada en tu máquina.
 
 Desde la carpeta raíz del proyecto:
 
 ```bash
-# 1. Construir la imagen con las herramientas de prueba (etapa "builder")
-docker build --target builder -t latamtradex-builder .
+# Opción 1 — con Docker Compose (recomendada)
+docker compose -f docker-compose.local.yml --profile tests run --rm unit
 
-# 2. Ejecutar toda la suite con reporte de cobertura
+# Opción 2 — con docker build + run
+docker build --target builder -t latamtradex-builder .
 docker run --rm latamtradex-builder npm run test:coverage
 ```
 
@@ -59,11 +69,25 @@ docker run --rm latamtradex-builder npm run test:watch  # modo interactivo (watc
 
 ---
 
-## 🎭 Pruebas E2E con Playwright (flujo completo)
+## 🎭 Pruebas E2E con Playwright (Actividad 2 — flujo completo)
 
 Pruebas **end-to-end** reales que manejan un navegador (Chromium) y recorren el flujo de negocio completo: proveedor publica → admin aprueba → comprador cotiza → admin acepta (genera la Orden de Compra) → proveedor avanza la orden → comprador ve el seguimiento → asesoría con pago demo.
 
 Corren **dentro de Docker** (misma imagen `builder`), que ya incluye Playwright + Chromium. El propio comando levanta un servidor con la base **sembrada** automáticamente.
+
+### Opción 1 — con Docker Compose (recomendada)
+
+Desde la raíz del proyecto:
+
+```bash
+# Suite E2E completa (Playwright)
+docker compose -f docker-compose.local.yml --profile tests run --rm e2e
+
+# Pruebas unitarias con cobertura (Jest)
+docker compose -f docker-compose.local.yml --profile tests run --rm unit
+```
+
+### Opción 2 — con docker build + run
 
 ```bash
 # Construir la imagen (si no se hizo ya)
@@ -86,8 +110,8 @@ Resultado esperado: **6 pruebas en verde**.
 ### Variantes
 
 ```bash
-# Apuntar a una URL ya desplegada (no levanta servidor local ni siembra):
-docker run --rm -e E2E_BASE_URL=https://latamtradex-actividad1.azucarsintactica.com \
+# Apuntar a la URL de PRODUCCIÓN (no levanta servidor local ni siembra):
+docker run --rm -e E2E_BASE_URL=https://latamtradex-actividad2.azucarsintactica.com/ \
   latamtradex-builder npm run e2e
 
 # En local (fuera de Docker), ver el navegador en vivo y a cámara lenta:
@@ -107,18 +131,21 @@ npm run e2e:ui                       # modo UI con time-travel
 
 Además de los tests, la app incluye un **overlay de demostración** que reproduce el mismo flujo manejando la UI real (rellena formularios, aprueba, cotiza, avanza la orden…), resaltando cada elemento. Es **solo para presentación**, no es un test.
 
+![Overlay de demo guiada de Latamtradex](docs/demo-overlay.png)
+
 ### Cómo activarlo
 
-Añade `?demo=1` a la URL de la app y aparecerá un panel flotante abajo a la derecha:
+Añade `?demo=1` a la URL y aparecerá un panel flotante en la **esquina inferior derecha**. Pulsa **▶ Play** para que ejecute solo el flujo completo.
 
-```
-http://localhost:3000/?demo=1
-```
+- **En producción:** **https://latamtradex-actividad2.azucarsintactica.com/?demo=1**
+- **En local:** `http://localhost:7084/?demo=1`
 
-- Pulsa **▶ Play** para iniciar la demo guiada. Verás la barra de progreso y el log de pasos.
-- **⏸ Pausa** / **⏹ Stop** para controlarla.
+Controles del panel (esquina inferior derecha):
+
+- **▶ Play** — inicia la demo guiada. Verás la barra de progreso y el log de pasos.
+- **⏸ Pausa** / **⏹ Stop** — para controlarla.
 - Sobrevive a los cambios de página (persiste su estado en `localStorage` y continúa tras cada navegación).
-- Para desactivarlo: `?demo=0` (o pulsa Stop). **No aparece por defecto** (requiere activación explícita), por lo que no se muestra en producción.
+- Para desactivarlo: `?demo=0` (o pulsa Stop). **No aparece por defecto** (requiere activación explícita).
 
 > Tanto el overlay como los tests E2E consumen la **misma definición de pasos** (`src/lib/demoFlow.ts`), de modo que el flujo se define una sola vez.
 
@@ -151,7 +178,9 @@ docker compose -f docker-compose.local.yml up -d --build
 
 Esto construye la imagen, levanta el contenedor `latamtradex-app` y **aplica automáticamente el esquema de base de datos** (el script de arranque ejecuta `prisma db push`). La app queda disponible en:
 
-👉 **http://localhost:3000**
+👉 **http://localhost:7084**
+
+> El `docker-compose.local.yml` publica el puerto **7084** del host (mapeado al 3000 del contenedor). Si quieres otro puerto, edita la línea `ports: ["7084:3000"]`.
 
 ### 2. Cargar los datos de demostración (seed)
 
@@ -168,7 +197,7 @@ docker run --rm \
   latamtradex-builder npx tsx prisma/seed.ts
 ```
 
-Al terminar verás impresas las credenciales demo. **Recarga http://localhost:3000** y ya tendrás el catálogo poblado.
+Al terminar verás impresas las credenciales demo. **Recarga http://localhost:7084** y ya tendrás el catálogo poblado.
 
 > ℹ️ El nombre del volumen (`latamtradex-generativecode_latamtradex-db`) es el del proyecto. Si tu carpeta tiene otro nombre, localízalo con `docker volume ls` y reemplázalo en el comando.
 
@@ -185,7 +214,7 @@ docker compose -f docker-compose.local.yml down -v   # eliminar TODO, incluida l
 
 ## 🔑 Credenciales de acceso (demo)
 
-Tras ejecutar el seed (paso 2), puedes entrar en **http://localhost:3000/login** con cualquiera de estos usuarios. **La contraseña es la misma para los tres:**
+Tras ejecutar el seed (paso 2), puedes entrar en **http://localhost:7084/login** (o en producción **https://latamtradex-actividad2.azucarsintactica.com/login**) con cualquiera de estos usuarios. **La contraseña es la misma para los tres:**
 
 | Rol | Correo | Contraseña |
 | --- | --- | --- |
@@ -202,7 +231,7 @@ Tras ejecutar el seed (paso 2), puedes entrar en **http://localhost:3000/login**
 A continuación, un recorrido completo que ejercita todas las funcionalidades. Se recomienda hacerlo en este orden para ver el flujo de negocio de principio a fin.
 
 ### Parte 0 — Navegación pública (sin login)
-1. Abre **http://localhost:3000**.
+1. Abre **http://localhost:7084**.
 2. Entra a **Catálogo** (menú superior): verás los productos aprobados, con búsqueda y filtro por categoría.
 3. Haz clic en un producto para ver su ficha, precio, origen y documentación certificada.
 
@@ -255,7 +284,7 @@ A continuación, un recorrido completo que ejercita todas las funcionalidades. S
 | Problema | Solución |
 | --- | --- |
 | El catálogo aparece vacío | No se ejecutó el seed. Repite el **paso 2**. |
-| `localhost:3000` no responde | Verifica que el contenedor esté arriba: `docker compose -f docker-compose.local.yml ps`. Revisa logs: `docker logs latamtradex-app`. |
+| `localhost:7084` no responde | Verifica que el contenedor esté arriba: `docker compose -f docker-compose.local.yml ps`. Revisa logs: `docker logs latamtradex-app`. |
 | El comando de seed no encuentra el volumen | Lista los volúmenes con `docker volume ls` y usa el que termine en `_latamtradex-db`. |
 | Quiero empezar de cero | `docker compose -f docker-compose.local.yml down -v` y repite desde el paso 1. |
 | Cambié código y no se refleja | Reconstruye la imagen: `docker compose -f docker-compose.local.yml up -d --build`. |
