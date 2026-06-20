@@ -4,6 +4,46 @@
 
 ---
 
+# 🚨 IMPORTANTE — LEER ANTES DE EJECUTAR 🚨
+
+## 🌐 URL DE LA APLICACIÓN (DESPLEGADA)
+
+# 👉 https://latamtradex-actividad1.azucarsintactica.com/login
+
+> **Esta es la URL pública de la aplicación ya desplegada.** Si solo quieres evaluarla, entra directamente ahí — no necesitas instalar nada.
+
+---
+
+## ⚡ PARA EJECUTAR EN LOCAL: PRIMERO ESTOS DOS COMANDOS (EN ORDEN)
+
+**1) Construir y levantar la aplicación:**
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+**2) Cargar los datos de demostración (OBLIGATORIO, si no el catálogo aparece vacío):**
+
+```bash
+docker compose -f docker-compose.local.yml exec app sh -c "cd /app && npm install bcryptjs --no-save --no-audit --no-fund && npx -y tsx prisma/seed.ts"
+```
+
+> ⚠️ **Sin el segundo comando NO hay datos** (usuarios, productos ni asesorías). Ejecútalos en el orden indicado.
+
+---
+
+## 🔑 USUARIOS Y CLAVE (DEMO)
+
+> **Demo:** `admin@latamtradex.com` / `proveedor@latamtradex.com` / `comprador@latamtradex.com` — **clave: `Latamtradex2026!`**
+
+| Rol | Correo | Contraseña |
+| --- | --- | --- |
+| 🛡️ **Administrador** | `admin@latamtradex.com` | `Latamtradex2026!` |
+| 📦 **Proveedor** | `proveedor@latamtradex.com` | `Latamtradex2026!` |
+| 🛒 **Comprador** | `comprador@latamtradex.com` | `Latamtradex2026!` |
+
+---
+
 ## 📑 Tabla de contenido
 
 1. [Requisitos previos](#-requisitos-previos)
@@ -43,24 +83,17 @@ Esto construye la imagen, levanta el contenedor `latamtradex-app` y **aplica aut
 
 👉 **http://localhost:3000**
 
-### 2. Cargar los datos de demostración (seed)
+### 2. Cargar los datos de demostración (seed) — OBLIGATORIO
 
-La imagen de producción es liviana y no incluye el cargador de datos, así que el seed se ejecuta con un contenedor auxiliar que comparte el mismo volumen de base de datos:
+La imagen de producción es liviana y no incluye el cargador de datos ni `bcryptjs`, así que el seed se ejecuta instalando esa dependencia al vuelo dentro del contenedor ya levantado:
 
 ```bash
-# a) Construir una imagen auxiliar con las herramientas de desarrollo
-docker build --target builder -t latamtradex-builder .
-
-# b) Ejecutar el seed contra la base de datos del contenedor
-docker run --rm \
-  -v latamtradex-generativecode_latamtradex-db:/app/data \
-  -e DATABASE_URL="file:/app/data/prod.db" \
-  latamtradex-builder npx tsx prisma/seed.ts
+docker compose -f docker-compose.local.yml exec app sh -c "cd /app && npm install bcryptjs --no-save --no-audit --no-fund && npx -y tsx prisma/seed.ts"
 ```
 
-Al terminar verás impresas las credenciales demo. **Recarga http://localhost:3000** y ya tendrás el catálogo poblado.
+Al terminar verás impresas las credenciales demo (`Seed completo:`). **Recarga http://localhost:3000** y ya tendrás el catálogo poblado.
 
-> ℹ️ El nombre del volumen (`latamtradex-generativecode_latamtradex-db`) es el del proyecto. Si tu carpeta tiene otro nombre, localízalo con `docker volume ls` y reemplázalo en el comando.
+> ℹ️ Los datos quedan guardados en el volumen `latamtradex-db`, así que no hace falta repetir este paso salvo que borres el volumen (`down -v`).
 
 ### 3. Detener / reiniciar
 
