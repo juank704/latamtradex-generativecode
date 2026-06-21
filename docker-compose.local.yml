@@ -10,14 +10,16 @@
 # El esquema de la base SQLite se aplica automaticamente al
 # arrancar (docker-entrypoint.sh -> prisma db push).
 # ============================================================
+# Proyecto Compose aislado (no choca con el branch main).
+name: latamtradex-test
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: latamtradex:latest
-    container_name: latamtradex-app
+    image: latamtradex-test:latest
+    container_name: latamtradex-test-app
     restart: unless-stopped
     ports:
       - "7084:3000"
